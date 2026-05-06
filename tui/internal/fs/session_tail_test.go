@@ -235,3 +235,78 @@ func TestTailJSONLNothingNew(t *testing.T) {
 		t.Fatalf("offset changed from %d to %d, should be unchanged", off, off2)
 	}
 }
+
+// Issue #40: parseEvent must extract the kernel's `meta` block from
+// notification_pair_injected events, populating SessionEntry.Meta.
+func TestParseEventNotificationMeta(t *testing.T) {
+	raw := map[string]interface{}{
+		"ts":      1781258400.0,
+		"type":    "notification_pair_injected",
+		"sources": []interface{}{"email", "soul"},
+		"summary": "[synthesized — kernel notification sync] 通知至：7 email，1 soul。",
+		"meta": map[string]interface{}{
+			"current_time": "2026-05-05T21:10:48-07:00",
+			"context": map[string]interface{}{
+				"system_tokens":  38398.0,
+				"history_tokens": 109121.0,
+				"usage":          0.147519,
+			},
+			"stamina_left_seconds": 35884.5,
+			"injection_seq":        2.0,
+		},
+	}
+	line, _ := json.Marshal(raw)
+
+	e := parseEvent(line)
+	if e == nil {
+		t.Fatal("parseEvent returned nil for notification_pair_injected")
+	}
+	if e.Type != "notification" {
+		t.Fatalf("Type = %q, want %q", e.Type, "notification")
+	}
+	if e.Meta == nil {
+		t.Fatal("Meta is nil; want extracted block")
+	}
+	if e.Meta.CurrentTime != "2026-05-05T21:10:48-07:00" {
+		t.Errorf("CurrentTime = %q", e.Meta.CurrentTime)
+	}
+	if e.Meta.StaminaLeftSeconds != 35884.5 {
+		t.Errorf("StaminaLeftSeconds = %v", e.Meta.StaminaLeftSeconds)
+	}
+	if e.Meta.InjectionSeq != 2 {
+		t.Errorf("InjectionSeq = %d", e.Meta.InjectionSeq)
+	}
+	if e.Meta.Context == nil {
+		t.Fatal("Context is nil")
+	}
+	if e.Meta.Context.SystemTokens != 38398 {
+		t.Errorf("SystemTokens = %d", e.Meta.Context.SystemTokens)
+	}
+	if e.Meta.Context.HistoryTokens != 109121 {
+		t.Errorf("HistoryTokens = %d", e.Meta.Context.HistoryTokens)
+	}
+	if e.Meta.Context.Usage != 0.147519 {
+		t.Errorf("Usage = %v", e.Meta.Context.Usage)
+	}
+}
+
+// Older events.jsonl rows (pre-issue-#40 kernel) carry no `meta` key —
+// SessionEntry.Meta must be nil so the renderer skips the footer instead
+// of printing sentinel zeros.
+func TestParseEventNotificationNoMeta(t *testing.T) {
+	raw := map[string]interface{}{
+		"ts":      1781258400.0,
+		"type":    "notification_pair_injected",
+		"sources": []interface{}{"email"},
+		"summary": "[synthesized — kernel notification sync] 通知至：1 email。",
+	}
+	line, _ := json.Marshal(raw)
+
+	e := parseEvent(line)
+	if e == nil {
+		t.Fatal("parseEvent returned nil")
+	}
+	if e.Meta != nil {
+		t.Errorf("Meta = %+v; want nil for legacy events", e.Meta)
+	}
+}

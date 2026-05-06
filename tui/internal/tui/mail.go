@@ -28,15 +28,16 @@ type ChatMessage struct {
 	Subject     string
 	Body        string
 	Timestamp   string
-	IsFromMe    bool     // human sent this
-	IsFromOrch  bool     // orchestrator (主我) sent this
-	Type        string   // "mail", "thinking", "diary", "insight"
-	Attachments []string // file paths attached to the message
-	Question    string   // question text (for /btw insight events)
-	Dismissed   bool     // true after user presses Esc; only show in verbose
-	Delivered   bool     // for Type=="mail" && IsFromMe: true if recipient picked up
-	Sources     []string // for Type=="notification": source keys (email, soul, system, ...)
-	Source      string   // for Type=="aed": subtype ("attempt" | "exhausted" | "timeout")
+	IsFromMe    bool                 // human sent this
+	IsFromOrch  bool                 // orchestrator (主我) sent this
+	Type        string               // "mail", "thinking", "diary", "insight"
+	Attachments []string             // file paths attached to the message
+	Question    string               // question text (for /btw insight events)
+	Dismissed   bool                 // true after user presses Esc; only show in verbose
+	Delivered   bool                 // for Type=="mail" && IsFromMe: true if recipient picked up
+	Sources     []string             // for Type=="notification": source keys (email, soul, system, ...)
+	Source      string               // for Type=="aed": subtype ("attempt" | "exhausted" | "timeout")
+	Meta        *fs.NotificationMeta // for Type=="notification": kernel vital signs at injection time (issue #40)
 }
 
 // ViewChangeMsg requests the app to switch views.
@@ -353,6 +354,62 @@ func (m *MailModel) shouldShow(e fs.SessionEntry) bool {
 	return false
 }
 
+// formatNotificationMetaFooter renders the kernel's per-injection vital
+// signs (issue #40) as a single compact line: "ctx 14.7% · stamina 9h58m
+// · 21:10 PDT · seq 2". Returns "" when meta is nil (older events
+// pre-dating the kernel emitter change) or carries only sentinel values.
+//
+// Each fragment is independently gated: a sentinel field is silently
+// dropped rather than rendered as "-1.0%" or "0s". When all fragments
+// drop, the function returns "" so the caller writes no footer line.
+func formatNotificationMetaFooter(meta *fs.NotificationMeta) string {
+	if meta == nil {
+		return ""
+	}
+	var parts []string
+	if meta.Context != nil && meta.Context.Usage >= 0 {
+		parts = append(parts, fmt.Sprintf("ctx %.1f%%", meta.Context.Usage*100))
+	}
+	if meta.StaminaLeftSeconds > 0 {
+		parts = append(parts, "stamina "+formatStaminaShort(meta.StaminaLeftSeconds))
+	}
+	if meta.CurrentTime != "" {
+		if short := formatCurrentTimeShort(meta.CurrentTime); short != "" {
+			parts = append(parts, short)
+		}
+	}
+	if meta.InjectionSeq > 0 {
+		parts = append(parts, fmt.Sprintf("seq %d", meta.InjectionSeq))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " · ")
+}
+
+// formatStaminaShort renders seconds as "9h58m" / "12m" / "45s".
+func formatStaminaShort(seconds float64) string {
+	s := int(seconds)
+	if s < 60 {
+		return fmt.Sprintf("%ds", s)
+	}
+	if s < 3600 {
+		return fmt.Sprintf("%dm", s/60)
+	}
+	return fmt.Sprintf("%dh%02dm", s/3600, (s%3600)/60)
+}
+
+// formatCurrentTimeShort renders an ISO-8601 timestamp as "HH:MM TZ"
+// (e.g. "21:10 PDT"). Returns "" when parsing fails so the footer
+// drops the field rather than showing the raw ISO string.
+func formatCurrentTimeShort(iso string) string {
+	t, err := time.Parse(time.RFC3339, iso)
+	if err != nil {
+		return ""
+	}
+	return t.Format("15:04 MST")
+}
+
 // sessionEntryToChatMessage converts a SessionEntry to a ChatMessage for rendering.
 func sessionEntryToChatMessage(e fs.SessionEntry, humanAddr string) ChatMessage {
 	cm := ChatMessage{
@@ -367,6 +424,7 @@ func sessionEntryToChatMessage(e fs.SessionEntry, humanAddr string) ChatMessage 
 		Delivered:   e.Delivered,
 		Sources:     e.Sources,
 		Source:      e.Source,
+		Meta:        e.Meta,
 	}
 	if e.Type == "mail" {
 		cm.IsFromMe = e.From == "human"
@@ -754,13 +812,16 @@ func (m MailModel) renderMessages(msgs []ChatMessage) string {
 			// (same green palette) so it reads as agent inner state rather
 			// than tool noise. Body is the kernel-logged summary string;
 			// when Sources has >1 entry we also list them on their own
-			// lines for clarity.
+			// lines for clarity. Issue #40: when the kernel attached a
+			// `meta` block (build_meta + injection_seq), render a compact
+			// faint footer with the agent's vital signs at injection time.
 			wrapWidth := m.width - 6
 			if wrapWidth < 20 {
 				wrapWidth = 20
 			}
 			notifStyle := lipgloss.NewStyle().Foreground(ColorAgent).Italic(true)
 			labelStyle := lipgloss.NewStyle().Foreground(ColorAccent).Bold(true)
+			footerStyle := notifStyle.Faint(true)
 			b.WriteString(labelStyle.Render("  ✉ notifications") + "\n")
 			if msg.Body != "" {
 				wrapped := lipgloss.NewStyle().Width(wrapWidth).Render(msg.Body)
@@ -772,6 +833,9 @@ func (m MailModel) renderMessages(msgs []ChatMessage) string {
 				for _, src := range msg.Sources {
 					b.WriteString(notifStyle.Render("    • "+src) + "\n")
 				}
+			}
+			if footer := formatNotificationMetaFooter(msg.Meta); footer != "" {
+				b.WriteString(footerStyle.Render("    "+footer) + "\n")
 			}
 
 		case "aed":

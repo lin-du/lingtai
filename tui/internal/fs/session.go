@@ -26,10 +26,30 @@ type SessionEntry struct {
 	Source      string   `json:"source,omitempty"` // "human", "insight" — for inquiry entries
 	FireID      string   `json:"fire_id,omitempty"` // soul_flow fires — used to look up voices in soul_flow.jsonl
 	Sources     []string `json:"sources,omitempty"` // notification entries — list of source keys (email, soul, system, ...)
+	Meta        *NotificationMeta `json:"meta,omitempty"` // notification entries — vital signs at injection time (kernel build_meta + injection_seq)
 
 	// Delivered is a transient field propagated from MailMessage.Delivered.
 	// Only meaningful for Type == "mail". Not persisted to session.jsonl.
 	Delivered bool `json:"-"`
+}
+
+// NotificationMeta carries the kernel's per-injection vital signs.
+// Shape mirrors lingtai_kernel.meta_block.build_meta plus the monotonic
+// injection_seq stamped in BaseAgent._inject_notification_pair. All fields
+// are optional — the kernel emits sentinel values (-1, "") when the
+// underlying state hasn't been computed yet, and older events.jsonl rows
+// pre-dating issue #40 carry no meta at all.
+type NotificationMeta struct {
+	CurrentTime        string                  `json:"current_time,omitempty"`
+	Context            *NotificationMetaContext `json:"context,omitempty"`
+	StaminaLeftSeconds float64                 `json:"stamina_left_seconds,omitempty"`
+	InjectionSeq       int                     `json:"injection_seq,omitempty"`
+}
+
+type NotificationMetaContext struct {
+	SystemTokens  int     `json:"system_tokens,omitempty"`
+	HistoryTokens int     `json:"history_tokens,omitempty"`
+	Usage         float64 `json:"usage,omitempty"`
 }
 
 // SessionCache is an append-only cache backed by session.jsonl.
@@ -582,6 +602,37 @@ func parseEvent(line []byte) *SessionEntry {
 					e.Sources = append(e.Sources, str)
 				}
 			}
+		}
+		// Issue #40: surface the kernel's build_meta vital signs so the
+		// renderer can show context %, stamina remaining, current time,
+		// and injection_seq alongside the source list. Older events
+		// pre-dating the kernel emitter change carry no meta key — the
+		// nil pointer signals "render without footer."
+		if rawMeta, ok := raw["meta"].(map[string]interface{}); ok {
+			meta := &NotificationMeta{}
+			if ct, ok := rawMeta["current_time"].(string); ok {
+				meta.CurrentTime = ct
+			}
+			if sls, ok := rawMeta["stamina_left_seconds"].(float64); ok {
+				meta.StaminaLeftSeconds = sls
+			}
+			if seq, ok := rawMeta["injection_seq"].(float64); ok {
+				meta.InjectionSeq = int(seq)
+			}
+			if rawCtx, ok := rawMeta["context"].(map[string]interface{}); ok {
+				ctx := &NotificationMetaContext{}
+				if st, ok := rawCtx["system_tokens"].(float64); ok {
+					ctx.SystemTokens = int(st)
+				}
+				if ht, ok := rawCtx["history_tokens"].(float64); ok {
+					ctx.HistoryTokens = int(ht)
+				}
+				if u, ok := rawCtx["usage"].(float64); ok {
+					ctx.Usage = u
+				}
+				meta.Context = ctx
+			}
+			e.Meta = meta
 		}
 	}
 	if eventType == "aed" {
