@@ -90,7 +90,6 @@ var editorFieldOrder = []editorField{
 	feCapFile, feCapBash, feCapCodex,
 	feCapAvatar, feCapDaemon, feCapLibrary,
 	feCapWebSearch, feCapVision,
-	feStreaming, feKarma, feNirvana,
 	feSave,
 }
 
@@ -590,8 +589,6 @@ func (m *PresetEditorModel) openInline() (PresetEditorModel, tea.Cmd) {
 		// Enums — Enter cycles forward (same as Right). Lets the user
 		// stay on the keyboard's "advance" key.
 		m.cycleFocused(+1)
-	case feStreaming, feKarma, feNirvana:
-		m.toggleFocused()
 	case feSave:
 		updated, cmd := m.commit()
 		return updated, cmd
@@ -919,24 +916,6 @@ func (m *PresetEditorModel) cycleFocused(dir int) {
 // cannot enable vision on a text-only model.
 func (m *PresetEditorModel) toggleFocused() {
 	f := editorFieldOrder[m.cursor]
-	switch f {
-	case feStreaming:
-		m.working.Manifest["streaming"] = !asBool(m.working.Manifest["streaming"])
-	case feKarma:
-		admin, _ := m.working.Manifest["admin"].(map[string]interface{})
-		if admin == nil {
-			admin = map[string]interface{}{}
-			m.working.Manifest["admin"] = admin
-		}
-		admin["karma"] = !asBool(admin["karma"])
-	case feNirvana:
-		admin, _ := m.working.Manifest["admin"].(map[string]interface{})
-		if admin == nil {
-			admin = map[string]interface{}{}
-			m.working.Manifest["admin"] = admin
-		}
-		admin["nirvana"] = !asBool(admin["nirvana"])
-	}
 	if capName, ok := capFieldNames[f]; ok {
 		currentModel := asString(m.llmMap()["model"])
 		if !modelSupportsCap(currentModel, capName) {
@@ -1201,17 +1180,6 @@ func (m PresetEditorModel) renderForm(width, height int) string {
 	for _, capName := range extraCapabilities {
 		rows = append(rows, m.capRow(capFieldFor(capName), capName, width-4))
 	}
-	rows = append(rows, "")
-	rows = append(rows, m.sectionHeader(i18n.T("preset_editor.section_runtime")))
-	streaming := asBool(m.working.Manifest["streaming"])
-	rows = append(rows, m.row(feStreaming, lbl("streaming"), boolLabel(streaming), width-4))
-	karma, nirvana := false, false
-	if admin, ok := m.working.Manifest["admin"].(map[string]interface{}); ok {
-		karma = asBool(admin["karma"])
-		nirvana = asBool(admin["nirvana"])
-	}
-	rows = append(rows, m.row(feKarma, lbl("karma"), boolLabel(karma), width-4))
-	rows = append(rows, m.row(feNirvana, lbl("nirvana"), boolLabel(nirvana), width-4))
 	rows = append(rows, "")
 	rows = append(rows, m.renderSaveButton())
 
@@ -1686,13 +1654,6 @@ func clonePresetForEditor(p preset.Preset) preset.Preset {
 func asBool(v interface{}) bool {
 	b, _ := v.(bool)
 	return b
-}
-
-func boolLabel(b bool) string {
-	if b {
-		return i18n.T("preset_editor.bool_on")
-	}
-	return i18n.T("preset_editor.bool_off")
 }
 
 func asExtra(extra map[string]interface{}, key string) string {
