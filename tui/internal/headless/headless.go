@@ -1,0 +1,28 @@
+package headless
+
+import (
+	"encoding/json"
+	"io"
+	"os"
+)
+
+// WriteJSON marshals data as indented JSON to w, followed by a newline.
+func WriteJSON(w io.Writer, data interface{}) {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	enc.Encode(data)
+}
+
+// WriteError writes a JSON error object to w.
+func WriteError(w io.Writer, message, code string) {
+	WriteJSON(w, map[string]string{
+		"error": message,
+		"code":  code,
+	})
+}
+
+// ExitError writes a JSON error to stderr and exits with code 1.
+func ExitError(message, code string) {
+	WriteError(os.Stderr, message, code)
+	os.Exit(1)
+}
