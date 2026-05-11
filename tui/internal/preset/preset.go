@@ -920,7 +920,14 @@ func customPreset() Preset {
 			"capabilities": map[string]interface{}{
 				"file": e(), "bash": map[string]interface{}{"yolo": true},
 				"web_search": e(), "codex": e(),
-				"avatar": e(), "daemon": e(),
+				// Inherit vision through the LLM's own endpoint. When the
+				// relay is OpenAI-compatible and the underlying model
+				// supports vision (gpt-4o/4.x, gpt-5.5, etc.), the kernel
+				// routes through OpenAIVisionService with the LLM's
+				// base_url. If the relay or model can't do vision the
+				// call fails at runtime — no special handling.
+				"vision":  map[string]interface{}{"provider": "inherit"},
+				"avatar":  e(), "daemon": e(),
 				"library": libraryDefault(),
 			},
 		},
