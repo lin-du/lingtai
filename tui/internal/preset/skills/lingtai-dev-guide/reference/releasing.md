@@ -56,22 +56,189 @@ cd ~/Documents/GitHub/lingtai/portal && make build
 
 ## Releasing the kernel (`lingtai-kernel` repo)
 
-The kernel is published to PyPI. After bumping `pyproject.toml` version:
+The kernel is published to PyPI as package `lingtai`. Do not reuse a version that already exists on PyPI; PyPI uploads are immutable. If the current `pyproject.toml` version is already published and there are new commits on `main`, bump to the next patch version first.
+
+### 1. Inspect current state
 
 ```bash
 cd ~/Documents/GitHub/lingtai-kernel
+git status --short --branch
+git tag --sort=-v:refname | head
+python - <<'PY'
+import tomllib, pathlib
+obj = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
+print(obj['project']['name'], obj['project']['version'])
+PY
+python -m pip index versions lingtai
+```
+
+If `pip index` lags behind immediately after an upload, query PyPI JSON directly:
+
+```bash
+python - <<'PY'
+import json, urllib.request
+obj = json.load(urllib.request.urlopen('https://pypi.org/pypi/lingtai/json'))
+print('latest:', obj['info']['version'])
+print('files for 0.X.Y:', len(obj['releases'].get('0.X.Y', [])))
+PY
+```
+
+### 2. Use a clean release worktree
+
+Prefer a clean worktree so unrelated local files do not leak into the release. Avoid `git fetch --tags` if this checkout has historical tag divergence; fetching `origin main` is enough for a patch release from current main.
+
+```bash
+cd ~/Documents/GitHub/lingtai-kernel
+git fetch origin main
+rm -rf .worktrees/release-0.X.Y
+git worktree add -b release/0.X.Y .worktrees/release-0.X.Y origin/main
+cd .worktrees/release-0.X.Y
+```
+
+Bump `pyproject.toml`:
+
+```bash
+python - <<'PY'
+from pathlib import Path
+p = Path('pyproject.toml')
+s = p.read_text()
+p.write_text(s.replace('version = "0.X.(Y-1)"', 'version = "0.X.Y"', 1))
+PY
+git diff -- pyproject.toml
+```
+
+### 3. Run focused release checks
+
+At minimum, rerun the tests that cover the changes in the release plus metadata/build checks. For notification/manifest releases this looked like:
+
+```bash
+python -m ruff check \
+  src/lingtai_kernel/intrinsics/soul/inquiry.py \
+  tests/test_notification_sync.py \
+  tests/test_agent_preset_manifest.py
+pytest -q \
+  tests/test_agent_preset_manifest.py \
+  tests/test_notification_sync.py \
+  tests/test_layers_email.py::test_email_receive_notification \
+  tests/test_agent.py::test_mail_inbox_wiring -q
+```
+
+If you know the full suite is currently noisy/crashy, state that in the release report and use the focused suite that covers the release's touched behavior.
+
+### 4. Build clean artifacts
+
+Remove ignored build byproducts and `__pycache__` before the final build. Otherwise setuptools may warn about `__pycache__` and, in bad cases, include stale `.pyc` files as package data.
+
+```bash
+find src -type d -name __pycache__ -prune -exec rm -rf {} +
+rm -rf dist build *.egg-info src/*.egg-info
 python -m build
-twine upload dist/*
+python -m twine check dist/*
+```
+
+Confirm artifact metadata and that no pycache entries are packaged:
+
+```bash
+python - <<'PY'
+import pathlib, tarfile, zipfile
+for p in sorted(pathlib.Path('dist').iterdir()):
+    print('artifact', p.name, p.stat().st_size)
+    if p.suffix == '.whl':
+        with zipfile.ZipFile(p) as z:
+            names = z.namelist()
+            print('pycache_count', sum('__pycache__' in n for n in names))
+            meta = [n for n in names if n.endswith('METADATA')][0]
+            text = z.read(meta).decode()
+            print('\n'.join(line for line in text.splitlines() if line.startswith(('Name:', 'Version:'))))
+    elif p.name.endswith('.tar.gz'):
+        with tarfile.open(p) as t:
+            names = t.getnames()
+            print('pycache_count', sum('__pycache__' in n for n in names))
+            member = [m for m in t.getmembers() if m.name.endswith('PKG-INFO')][0]
+            text = t.extractfile(member).read().decode()
+            print('\n'.join(line for line in text.splitlines() if line.startswith(('Name:', 'Version:'))))
+PY
+```
+
+### 5. Commit, tag, and push
+
+Commit the version bump, push a release branch and tag, then fast-forward `main`. If `main` is checked out in another worktree, do the `main` fast-forward from that main worktree.
+
+```bash
+git add pyproject.toml
+git commit -m 'chore: bump version to 0.X.Y'
+git push -u origin release/0.X.Y
+git tag v0.X.Y
+git push origin v0.X.Y
+```
+
+Then, from the main worktree if needed:
+
+```bash
+cd ~/Documents/GitHub/lingtai-kernel
+git fetch origin main release/0.X.Y
+git checkout main
+git merge --ff-only release/0.X.Y
+git push origin main
+git ls-remote origin refs/heads/main refs/tags/v0.X.Y
+```
+
+### 6. Upload to PyPI
+
+Use the configured Twine credentials (usually `~/.pypirc`, never print secrets). Check the version is still absent, then upload:
+
+```bash
+python - <<'PY'
+import json, urllib.request
+obj = json.load(urllib.request.urlopen('https://pypi.org/pypi/lingtai/json'))
+print('latest:', obj['info']['version'])
+print('0.X.Y files:', len(obj['releases'].get('0.X.Y', [])))
+PY
+python -m twine upload dist/*
+```
+
+### 7. Verify the published package
+
+PyPI JSON usually updates before `pip index`, which can lag. Verify with JSON, then install from PyPI in a clean venv:
+
+```bash
+python - <<'PY'
+import json, time, urllib.request
+for i in range(12):
+    obj = json.load(urllib.request.urlopen('https://pypi.org/pypi/lingtai/json'))
+    files = obj['releases'].get('0.X.Y', [])
+    print('attempt', i + 1, 'latest', obj['info']['version'], 'files', len(files))
+    if files:
+        for f in files:
+            print(f['filename'], f['packagetype'], f['size'], f['upload_time_iso_8601'])
+        break
+    time.sleep(5)
+PY
+
+TMPVENV=$(mktemp -d)
+python -m venv "$TMPVENV/venv"
+"$TMPVENV/venv/bin/python" -m pip install --upgrade pip
+"$TMPVENV/venv/bin/python" -m pip install --no-cache-dir --no-deps lingtai==0.X.Y
+"$TMPVENV/venv/bin/python" - <<'PY'
+import importlib.metadata as md
+import lingtai, lingtai_kernel
+print('dist version:', md.version('lingtai'))
+print('lingtai:', lingtai.__file__)
+print('lingtai_kernel:', lingtai_kernel.__file__)
+PY
+rm -rf "$TMPVENV"
+```
+
+### 8. Report and local hygiene
+
+Report: version, PyPI URL, tag/main commit, tests/checks, artifact sizes, clean-venv install result, and any known caveats. Pull/update any local runtime checkout as needed so auto-upgraders do not clobber an editable install.
+
+```bash
+cd ~/Documents/GitHub/lingtai-kernel
+git pull --ff-only origin main
 ```
 
 Or use the project's CI/CD pipeline if configured.
-
-After publishing to PyPI, pull the kernel repo on your dev machine so the auto-upgrader doesn't clobber the editable install:
-
-```bash
-cd ~/Documents/GitHub/lingtai-kernel
-git pull
-```
 
 ## Installing without Homebrew
 
@@ -98,6 +265,9 @@ Requires Go toolchain and Node.js (for portal web frontend).
 - [ ] GitHub release created
 - [ ] Homebrew tap updated
 - [ ] `brew upgrade` verified
+- [ ] Kernel version bumped, tag pushed, and main fast-forwarded
+- [ ] Kernel artifacts built cleanly and `twine check` passed
 - [ ] Kernel published to PyPI (if kernel changed)
+- [ ] Clean venv can install the new PyPI version
 - [ ] Dev-mode symlinks rebuilt
 - [ ] Kernel repo pulled on dev machine
