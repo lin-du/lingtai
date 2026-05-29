@@ -66,7 +66,55 @@ gh release create v0.X.Y --title "v0.X.Y" --notes "release notes here..."
 
 No binary assets needed — Homebrew builds from source, Linux users build locally.
 
-### 4. Update the Homebrew tap
+### 4. Write release notes and the human-facing release log
+
+Every TUI/portal release should have two written artifacts:
+
+1. **GitHub Release notes** — short, public, and user-facing. These are pasted into `gh release create` with `--notes-file` or edited on the GitHub Release page. Use this structure:
+
+   ```markdown
+   ## Highlights
+
+   - User-visible feature or fix, phrased as an outcome.
+   - Another high-impact change.
+
+   ## Skills, docs, and packaged guidance
+
+   - Shipped skill/procedure/doc updates that change how agents or developers work.
+
+   ## Validation
+
+   Release candidate: `<full commit>` (`upstream/main`).
+
+   Checks run from a clean detached release worktree:
+
+   - `cd tui && go test ./...` ✅
+   - `cd tui && make clean && make build && ./bin/lingtai-tui version` ✅
+   - `cd portal/web && npm ci && npm run build` ✅
+   - `cd portal && go test ./...` ✅ after building `web/dist` for embedded assets
+   - `cd portal && make clean && make build` ✅
+
+   Known note: `<anything users/maintainers should know, or “none.”>`
+   ```
+
+2. **Human-facing HTML release log** — longer, reviewable, and shareable with the maintainer before publishing. Generate it under the agent/report workspace (for example `reports/lingtai-tui-v0.X.Y-release.html`) and send the absolute path to the human. Do **not** attach it to GitHub Release or commit it unless the human explicitly asks. Use one self-contained HTML file (inline CSS, no remote assets) with these sections:
+
+   - **Summary / 摘要** — whether the release is worth upgrading to, the scope boundary (TUI/portal vs kernel/PyPI), the tag/commit, and any caveats.
+   - **Features and fixes / 新功能与修复** — cards grouped by user-visible outcome, with PR/issue links and contributor attribution.
+   - **Contributors / 贡献者** — distinguish external/community contributors, maintainer/release work, automation (`github-actions[bot]`), and AI co-author trailers. Do not count bots or AI trailers as human contributors.
+   - **Validation / 发布验证** — exact commands run, success/failure, workflow/tap links if already published, and known caveats such as `npm audit` findings.
+   - **Commits / 提交明细** — compare range (`v0.X.(Y-1)..v0.X.Y` or `last-release..main`) with commit hash, author, and subject.
+
+Recommended data-gathering commands before writing either artifact:
+
+```bash
+gh release view v0.X.(Y-1) --repo Lingtai-AI/lingtai
+gh api repos/Lingtai-AI/lingtai/compare/v0.X.(Y-1)...main \
+  --jq '{ahead_by,total_commits,commits:[.commits[]|{sha:(.sha[0:7]),message:.commit.message,author:.commit.author.name,date:.commit.author.date}],files:[.files[]|{filename,status,additions,deletions}]}'
+gh pr view <PR> --repo Lingtai-AI/lingtai --json number,title,author,mergedAt,mergeCommit,url,body,files
+```
+
+### 5. Update the Homebrew tap
 
 ```bash
 # Get the source tarball checksum
@@ -80,14 +128,14 @@ git commit -m "bump lingtai-tui to v0.X.Y"
 git push
 ```
 
-### 5. Verify
+### 6. Verify
 
 ```bash
 brew update && brew upgrade lingtai-ai/lingtai/lingtai-tui
 lingtai-tui version  # should show v0.X.Y
 ```
 
-### 6. Rebuild dev mode symlinks (if applicable)
+### 7. Rebuild dev mode symlinks (if applicable)
 
 After a release, your dev-mode symlinks still point at the old binary. Rebuild both:
 
