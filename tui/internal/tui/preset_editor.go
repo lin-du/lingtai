@@ -117,7 +117,7 @@ var capabilityProviderOptions = map[string][]string{
 // new flagship ships, add it (and remove deprecated entries — agents
 // will hit 4xx if they pick a retired model).
 var providerModels = map[string][]string{
-	"minimax":  {"MiniMax-M2.7-highspeed", "MiniMax-M2.7"},
+	"minimax":  {"MiniMax-M3"},
 	"zhipu":    {"GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"},
 	"mimo":     {"mimo-v2.5", "mimo-v2.5-pro", "mimo-v2-flash"},
 	"deepseek": {"deepseek-v4-flash", "deepseek-v4-pro"},
@@ -138,9 +138,8 @@ var providerModels = map[string][]string{
 // the user isn't blocked from enabling it on a model the editor
 // doesn't catalog.
 var modelHasVision = map[string]bool{
-	// MiniMax: both M2.7 sizes accept images.
-	"MiniMax-M2.7-highspeed": true,
-	"MiniMax-M2.7":           true,
+	// MiniMax: M3 is the current flagship and accepts images.
+	"MiniMax-M3": true,
 	// Zhipu coding-plan models — current generation supports vision.
 	"GLM-5.1":     true,
 	"GLM-5-Turbo": true,
@@ -860,7 +859,7 @@ func (m *PresetEditorModel) cycleFocused(dir int) {
 		m.llmMap()["provider"] = newProvider
 		// Reset model to the new provider's first canonical entry when the
 		// current model isn't valid for the new provider. Without this, a
-		// minimax→zhipu switch leaves "MiniMax-M2.7-highspeed" in model
+		// minimax→zhipu switch leaves "MiniMax-M3" in model
 		// and validation passes silently while the kernel later 4xxs.
 		if models, ok := providerModels[newProvider]; ok && len(models) > 0 {
 			currentModel := asString(m.llmMap()["model"])
