@@ -316,3 +316,61 @@ func TestBuildSkillFolderEntries_DevGuideNestedReferences(t *testing.T) {
 		t.Error("nested architecture child should identify itself as a nested lingtai-dev-guide reference")
 	}
 }
+
+func TestBuildSkillFolderEntries_RecipeNestedReferences(t *testing.T) {
+	_, thisFile, _, _ := runtime.Caller(0)
+	skillDir := filepath.Join(filepath.Dir(thisFile), "..", "preset", "skills", "lingtai-recipe")
+
+	entries := buildSkillFolderEntries(skillDir)
+	if len(entries) == 0 {
+		t.Fatal("no entries; is lingtai-recipe missing?")
+	}
+	if entries[0].Label != "SKILL.md" {
+		t.Errorf("first entry = %q, want SKILL.md", entries[0].Label)
+	}
+
+	rootBodyBytes, err := os.ReadFile(filepath.Join(skillDir, "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rootBody := string(rootBodyBytes)
+	for _, want := range []string{
+		"Nested reference catalog",
+		"```yaml",
+		"- name: recipe-format-reference",
+		"- name: recipe-export-flow",
+		"Routing table",
+		"reference/recipe-format/SKILL.md",
+		"reference/export-recipe/SKILL.md",
+		"gitignore.template",
+	} {
+		if !strings.Contains(rootBody, want) {
+			t.Errorf("lingtai-recipe root missing %q", want)
+		}
+	}
+
+	labels := make(map[string]MarkdownEntry)
+	for _, e := range entries {
+		labels[e.Label] = e
+	}
+	for _, want := range []string{
+		"recipe-format/SKILL.md",
+		"export-recipe/SKILL.md",
+	} {
+		e, ok := labels[want]
+		if !ok {
+			t.Fatalf("missing nested lingtai-recipe entry %q", want)
+		}
+		if e.Group != "reference" {
+			t.Errorf("entry %q group = %q, want reference", want, e.Group)
+		}
+	}
+
+	childBodyBytes, err := os.ReadFile(filepath.Join(skillDir, "reference", "recipe-format", "SKILL.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(childBodyBytes), "Nested lingtai-recipe reference") {
+		t.Error("nested recipe-format child should identify itself as a nested lingtai-recipe reference")
+	}
+}
