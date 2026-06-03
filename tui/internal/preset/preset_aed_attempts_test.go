@@ -7,15 +7,14 @@ import (
 	"testing"
 )
 
-// TestDefaultAgentOpts_MaxAedAttempts pins the TUI default to the kernel's
-// effective production fallback (3). See ClampAedAttempts doc for why this is
-// 3 and not the dataclass's 10.
+// TestDefaultAgentOpts_MaxAedAttempts pins the TUI first-run/setup default,
+// so generated init.json manifests use the intended AED retry count.
 func TestDefaultAgentOpts_MaxAedAttempts(t *testing.T) {
 	if got := DefaultAgentOpts().MaxAedAttempts; got != DefaultMaxAedAttempts {
 		t.Errorf("DefaultAgentOpts().MaxAedAttempts = %d, want %d", got, DefaultMaxAedAttempts)
 	}
-	if DefaultMaxAedAttempts != 3 {
-		t.Errorf("DefaultMaxAedAttempts = %d, want 3 (kernel _read_init fallback)", DefaultMaxAedAttempts)
+	if DefaultMaxAedAttempts != 5 {
+		t.Errorf("DefaultMaxAedAttempts = %d, want 5", DefaultMaxAedAttempts)
 	}
 }
 

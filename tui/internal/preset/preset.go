@@ -1269,14 +1269,12 @@ func DefaultAgentOpts() AgentOpts {
 	}
 }
 
-// AED max-attempts validation bounds. DefaultMaxAedAttempts mirrors the
-// kernel's effective production fallback — agent.py `_read_init` reconstructs
-// the agent config with `m.get("max_aed_attempts", 3)` on every setup/refresh,
-// so 3 is what an absent key resolves to in practice. (The AgentConfig
-// dataclass field defaults to 10, but that value only applies when config is
-// built without `_setup_from_init`, mostly in tests.)
+// AED max-attempts validation bounds. DefaultMaxAedAttempts is the TUI
+// first-run/setup default for newly generated init.json manifests. Keep this
+// default explicit so setup, tests, and generated init.json agree on the same
+// AED retry count.
 const (
-	DefaultMaxAedAttempts = 3
+	DefaultMaxAedAttempts = 5
 	MinMaxAedAttempts     = 1
 	MaxMaxAedAttempts     = 100
 )

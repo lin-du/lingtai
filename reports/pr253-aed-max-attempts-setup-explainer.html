@@ -33,6 +33,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-hei
 </ul>
 <h2>Notes</h2>
 <p class="warn">Kernel note:</p>
-<p>The kernel dataclass default mentions <code>10</code>, but the effective production path through <code>agent.py</code> currently reads <code>manifest.max_aed_attempts</code> with fallback <code>3</code>. This PR pins the TUI default to <code>3</code> so new setup output matches runtime behavior rather than an unused dataclass default.</p>
+<p>The TUI first-run/setup default is now <code>5</code>, so newly generated <code>init.json</code> manifests persist <code>manifest.max_aed_attempts: 5</code>. Empty, invalid, or zero input falls back to the same TUI default before writing.</p>
 </body>
 </html>
