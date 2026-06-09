@@ -219,6 +219,12 @@ LingTai assistants live in the filesystem, so coding agents can work with them i
 
 The split: a coding agent is precise and verifiable — every tool call visible, every edit reviewable. A LingTai assistant is asynchronous and patient — it remembers the goal, talks to the human, coordinates parallel contexts, and decides when to hand work to a specialist. Use the coding agent as hands. Use LingTai as the long-running collaborator that plans, drafts, monitors, and remembers.
 
+## ResearchClawBench: evaluate agents on real research work
+
+If you are exploring AI agents for science, take a look at [ResearchClawBench](https://github.com/InternScience/ResearchClawBench) ([official site](https://internscience.github.io/ResearchClawBench-Home/)). It is an open benchmark for automated research agents, spanning re-discovery and new-discovery tasks across scientific domains.
+
+ResearchClawBench is a useful companion for the LingTai philosophy: LingTai provides the local, long-lived organizational substrate — memory, mailboxes, avatars, daemons, and human-facing coordination — while benchmarks like ResearchClawBench make the research-agent work measurable. Use it to compare how Claude Code, Codex, OpenClaw-style agents, and LingTai-coordinated workflows behave on end-to-end scientific tasks.
+
 ## Install in detail
 
 ### Homebrew (recommended)
