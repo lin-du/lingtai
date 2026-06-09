@@ -1,7 +1,7 @@
 # Graphify repo map
 
-This document explains how contributors use [Graphify](https://github.com/) to build a
-knowledge graph of this repository, what the generated artifacts contain, how to
+This document explains how contributors use Graphify to build a knowledge graph
+of this repository, what the generated artifacts contain, how to
 regenerate them, and which navigation/documentation improvements the latest run
 surfaced.
 
