@@ -47,7 +47,7 @@ This is the most important concept in the entire tutorial.
 
 **The molt ritual:**
 
-1. Tend the four durable stores (identity, pad, knowledge, skills).
+1. Tend the four durable stores (identity, pad, knowledge, skills). Identity (`lingtai`) is the one agents skip most often: if the session changed the agent's operating style, obligations, relationship to the human, taste, safety posture, or trust model, update lingtai before molting — pad/knowledge/skills are not a substitute for it.
 2. Write a "charge" — a briefing to the next self covering: what you're working on, what's done, what remains, who to contact, which codex entries to load, which skills to invoke.
 3. Trigger the molt. The conversation vanishes; the charge becomes the first thing the new self sees.
 

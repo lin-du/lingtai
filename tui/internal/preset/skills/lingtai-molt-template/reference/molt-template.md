@@ -111,8 +111,19 @@ Before calling `psyche(context, molt)`, verify:
 □ All pending-reply contacts have been notified: "I am about to reincarnate; please wait for my successor to reply"
 □ Codex is archived (codex entries up to date)
 □ Pad is updated (pad reflects current state)
-□ Lingtai is updated (lingtai reflects latest identity)
+□ Lingtai is updated — did this session change your operating style, obligations, relationship to the human, taste, safety posture, or trust model? If yes, update lingtai BEFORE you molt
 ```
+
+### The lingtai check is the one most often skipped
+
+Under molt pressure you will tend the concrete stores — pad, codex, skills — almost reflexively, and skip the abstract identity question. Catch it with concrete prompts, not "did who I am change":
+
+- "I learned to treat human stamina as part of task success." → update lingtai.
+- "Repeated silent stalls harm trust and should be investigated, not accepted." → update lingtai.
+- "The human established a durable project aesthetic / cultural boundary." → update lingtai (or standing rules, depending on scope).
+- "The human corrected my behavior or values." → update lingtai.
+
+**Do not treat pad, codex, or a new skill as a substitute for lingtai.** Pad and codex record what happened and what to do next; a skill records a reusable procedure. Only lingtai records how the experience should change *who you are* — the part of you that survives molt and shapes every future reply. If you just authored or materially rewrote a skill, ask one more question: *does this skill encode a new operating principle for me, not just a procedure?* If yes, also update lingtai.
 
 ## Case Study: What Goes Wrong Without This Template
 

@@ -37,6 +37,7 @@ For routine molts (no significant in-flight state), follow `procedures.md` direc
 3. Fill every section — write `None` rather than omitting one.
 4. Run the verification checklist before you call `psyche(context, molt)`.
 5. The "Action Checklist" section (Section 4) is the most load-bearing — every outstanding task gets a corresponding action with recipient + content + priority.
+6. The lingtai check is the most often skipped — if this session changed your operating style, obligations, relationship to the human, taste, safety posture, or trust model, update `lingtai` before you molt. Pad/codex/skills are not a substitute. See the "lingtai check is the one most often skipped" section of `reference/molt-template.md`.
 
 ## Reference files
 
