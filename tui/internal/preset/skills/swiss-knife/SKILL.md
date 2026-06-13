@@ -32,6 +32,7 @@ assets.
 ```yaml
 nested_references:
   - name: bash-cli-harnesses
+    # Virtual cross-skill redirect, not a local reference/<name>/SKILL.md file.
     location: bash-manual reference/bash-*/SKILL.md
     description: >
       Coding-agent CLIs such as Claude Code, OpenAI Codex, OpenCode, Cursor
