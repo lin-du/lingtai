@@ -91,9 +91,8 @@ func TestBuildSkillFolderEntries_SwissKnifeNestedReferences(t *testing.T) {
 	rootBody := string(rootBodyBytes)
 	for _, want := range []string{
 		"Nested reference catalog",
-		"reference/claude-code/SKILL.md",
-		"reference/openai-codex/SKILL.md",
-		"reference/opencode/SKILL.md",
+		"bash-cli-harnesses",
+		"bash-manual reference/bash-*/SKILL.md",
 		"reference/minimax-cli/SKILL.md",
 		"reference/vision/SKILL.md",
 		"reference/listen/SKILL.md",
@@ -115,9 +114,6 @@ func TestBuildSkillFolderEntries_SwissKnifeNestedReferences(t *testing.T) {
 		labels[e.Label] = e
 	}
 	for _, want := range []string{
-		"claude-code/SKILL.md",
-		"openai-codex/SKILL.md",
-		"opencode/SKILL.md",
 		"html-report/SKILL.md",
 		"html-report/assets/template.html",
 		"vision/SKILL.md",
@@ -141,14 +137,6 @@ func TestBuildSkillFolderEntries_SwissKnifeNestedReferences(t *testing.T) {
 		if e.Group != "reference" {
 			t.Errorf("entry %q group = %q, want reference", want, e.Group)
 		}
-	}
-
-	childBodyBytes, err := os.ReadFile(filepath.Join(skillDir, "reference", "claude-code", "SKILL.md"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(childBodyBytes), "Nested swiss-knife reference for Claude Code CLI") {
-		t.Error("nested claude-code child should identify itself as a nested swiss-knife reference for Claude Code CLI")
 	}
 
 	djBodyBytes, err := os.ReadFile(filepath.Join(skillDir, "reference", "dj", "SKILL.md"))
