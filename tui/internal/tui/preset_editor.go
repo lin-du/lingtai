@@ -128,7 +128,7 @@ var providerModels = map[string][]string{
 		"MiniMax-M2.1", "MiniMax-M2.1-highspeed",
 		"MiniMax-M2",
 	},
-	"zhipu":    {"GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"},
+	"zhipu":    {"GLM-5.2", "GLM-5.1", "GLM-5-Turbo", "GLM-4.7", "GLM-4.5-Air"},
 	"mimo":     {"mimo-v2.5", "mimo-v2.5-pro", "mimo-v2-flash"},
 	"deepseek": {"deepseek-v4-flash", "deepseek-v4-pro"},
 	// Codex: ChatGPT-OAuth-only models served by chatgpt.com/backend-api/codex.
@@ -164,6 +164,7 @@ var modelHasVision = map[string]bool{
 	"MiniMax-M2.1-highspeed": false,
 	"MiniMax-M2":             false,
 	// Zhipu coding-plan models — current generation supports vision.
+	"GLM-5.2":     true,
 	"GLM-5.1":     true,
 	"GLM-5-Turbo": true,
 	"GLM-4.7":     true,
