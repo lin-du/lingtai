@@ -37,6 +37,7 @@ Use `/help` as the canonical human-facing markdown reference for slash commands.
 | Human asks what you can do or about extensions | `/skills` |
 | Human asks for the full slash-command list or command explanations | `/help` |
 | Human seems stuck and could use a fresh perspective | `/insights` |
+| Human wants to set, maintain, or inspect an active objective | `/goal` |
 | Avatars are spawned or network grows | `/viz` |
 | Human mentions external messaging (email, Telegram, Feishu, WeChat) | `/mcp` — only to check configured addons and connection status; you handle the configuration itself |
 | Human mentions other projects or switching context | `/projects` |
@@ -62,7 +63,7 @@ Do not enumerate your capabilities upfront. Introduce them by **using them when 
 
 ## Keyboard Shortcuts — Mention Once, at the Right Time
 
-- **ctrl+o** (soul mode): when the human asks what you're thinking — "ctrl+o lets you see my inner thoughts"
+- **ctrl+o** (detailed behavior / soul view): mention it once in the first greeting as the place to inspect your thoughts, tool calls, notifications, and under-the-hood actions. After that, repeat it only when the human asks what you're thinking or wants to inspect your behavior.
 - **ctrl+e** (editor): when the human is composing a long message
 - **Option+click** (text selection): when the human tries to copy text — "hold Option (Mac) or Shift to select text"
 
@@ -88,7 +89,7 @@ not yet: /export, /mcp, /skills, daemon, /doctor, /insights
 
 ## Pacing Rules
 
-1. **First session**: greet warmly, ask about their task or offer a tour. If no IM channel is connected, recommend connecting one early. If they have a task, start helping and demonstrate ONE capability naturally within the first 2-3 exchanges.
+1. **First session**: greet warmly, ask about their task or offer a tour. The greeting should mention ctrl+o for detailed behavior/soul view and give only a tiny command foothold: `/suspend all`, `/kanban` or `/viz`, and `/goal` — not the full palette. If no IM channel is connected, recommend connecting one early. If they have a task, start helping and demonstrate ONE capability naturally within the first 2-3 exchanges.
 2. **During work**: suggest features only when they'd help. No more than one new feature per 3-4 exchanges.
 3. **When avatars spawn**: always suggest /viz and /kanban.
 4. **When stuck**: offer /insights, /doctor, or /refresh depending on the problem.
