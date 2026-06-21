@@ -890,13 +890,18 @@ func (m *PresetEditorModel) setCodexServiceTier(tier string) {
 	llm["service_tier"] = "fast"
 }
 
+// codexDefaultThinking is the reasoning effort LingTai applies to Codex
+// when a preset omits (or carries an invalid) llm.thinking. LingTai is the
+// primary brain, so it runs Codex at maximum effort by default.
+const codexDefaultThinking = "xhigh"
+
 func (m PresetEditorModel) codexThinking() string {
 	llm, _ := m.working.Manifest["llm"].(map[string]interface{})
 	switch asString(llm["thinking"]) {
 	case "low", "medium", "high", "xhigh":
 		return asString(llm["thinking"])
 	default:
-		return "high"
+		return codexDefaultThinking
 	}
 }
 
@@ -907,10 +912,12 @@ func (m *PresetEditorModel) setCodexThinking(effort string) {
 		return
 	}
 	switch effort {
-	case "low", "medium", "xhigh":
+	case "low", "medium", "high", "xhigh":
 		llm["thinking"] = effort
 	default:
-		delete(llm, "thinking")
+		// Absent/invalid resolves to the Codex default, persisted
+		// explicitly so the running session actually receives xhigh.
+		llm["thinking"] = codexDefaultThinking
 	}
 }
 
@@ -935,10 +942,13 @@ func normalizeThinking(manifest map[string]interface{}) {
 		return
 	}
 	switch asString(llm["thinking"]) {
-	case "low", "medium", "xhigh":
+	case "low", "medium", "high", "xhigh":
 		return
 	default:
-		delete(llm, "thinking")
+		// Codex with absent/invalid thinking is normalized to the default
+		// so committed/cloned/generated presets explicitly carry it and the
+		// running session receives xhigh rather than a UI-only fallback.
+		llm["thinking"] = codexDefaultThinking
 	}
 }
 

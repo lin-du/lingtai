@@ -285,7 +285,7 @@ func TestGenerateInitJSON_ProducesValidJSON(t *testing.T) {
 	})
 }
 
-func TestCodexPresetDefaultOmitsServiceTier(t *testing.T) {
+func TestCodexPresetDefaultOmitsServiceTierAndSetsThinking(t *testing.T) {
 	p := codexPreset()
 	llm, ok := p.Manifest["llm"].(map[string]interface{})
 	if !ok {
@@ -294,8 +294,11 @@ func TestCodexPresetDefaultOmitsServiceTier(t *testing.T) {
 	if _, ok := llm["service_tier"]; ok {
 		t.Fatalf("codex preset default should omit llm.service_tier; got %#v", llm["service_tier"])
 	}
-	if _, ok := llm["thinking"]; ok {
-		t.Fatalf("codex preset default should omit llm.thinking; got %#v", llm["thinking"])
+	// LingTai is the primary brain, so the default Codex preset carries
+	// reasoning effort xhigh explicitly (not a UI-only fallback) so the
+	// running session actually receives it.
+	if got, ok := llm["thinking"].(string); !ok || got != "xhigh" {
+		t.Fatalf("codex preset default should set llm.thinking=xhigh; got %#v", llm["thinking"])
 	}
 
 	tmpDir := t.TempDir()
@@ -321,8 +324,8 @@ func TestCodexPresetDefaultOmitsServiceTier(t *testing.T) {
 	if _, ok := generatedLLM["service_tier"]; ok {
 		t.Fatalf("generated codex init.json should omit llm.service_tier; got %#v", generatedLLM["service_tier"])
 	}
-	if _, ok := generatedLLM["thinking"]; ok {
-		t.Fatalf("generated codex init.json should omit llm.thinking; got %#v", generatedLLM["thinking"])
+	if got, ok := generatedLLM["thinking"].(string); !ok || got != "xhigh" {
+		t.Fatalf("generated codex init.json should set llm.thinking=xhigh; got %#v", generatedLLM["thinking"])
 	}
 }
 

@@ -515,8 +515,8 @@ func TestPresetEditorCodexThinkingRowAndOptions(t *testing.T) {
 	if !m.fieldVisible(feThinking) {
 		t.Fatalf("codex reasoning effort row should be visible")
 	}
-	if got := m.fieldString(feThinking); got != "high" {
-		t.Fatalf("empty llm.thinking displays %q, want high", got)
+	if got := m.fieldString(feThinking); got != "xhigh" {
+		t.Fatalf("empty llm.thinking displays %q, want xhigh", got)
 	}
 	if !strings.Contains(view, "Reasoning effort") {
 		t.Fatalf("codex editor should render Reasoning effort row; view:\n%s", view)
@@ -535,7 +535,7 @@ func TestPresetEditorCodexThinkingSelectionAndCommit(t *testing.T) {
 	}{
 		{effort: "low", wantSaved: true},
 		{effort: "medium", wantSaved: true},
-		{effort: "high"},
+		{effort: "high", wantSaved: true},
 		{effort: "xhigh", wantSaved: true},
 	}
 
@@ -570,11 +570,12 @@ func TestPresetEditorCodexThinkingDisplayAndCommitNormalization(t *testing.T) {
 		wantSaved   bool
 		wantValue   string
 	}{
-		{name: "absent", thinking: nil, wantDisplay: "high"},
-		{name: "explicit high", thinking: "high", wantDisplay: "high"},
+		{name: "absent", thinking: nil, wantDisplay: "xhigh", wantSaved: true, wantValue: "xhigh"},
+		{name: "explicit high", thinking: "high", wantDisplay: "high", wantSaved: true, wantValue: "high"},
 		{name: "low", thinking: "low", wantDisplay: "low", wantSaved: true, wantValue: "low"},
-		{name: "unknown", thinking: "turbo", wantDisplay: "high"},
-		{name: "wrong type", thinking: 12, wantDisplay: "high"},
+		{name: "explicit xhigh", thinking: "xhigh", wantDisplay: "xhigh", wantSaved: true, wantValue: "xhigh"},
+		{name: "unknown", thinking: "turbo", wantDisplay: "xhigh", wantSaved: true, wantValue: "xhigh"},
+		{name: "wrong type", thinking: 12, wantDisplay: "xhigh", wantSaved: true, wantValue: "xhigh"},
 	}
 
 	for _, tc := range cases {
