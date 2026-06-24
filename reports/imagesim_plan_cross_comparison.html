@@ -1,0 +1,57 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ImageSimilarity 两版方案交叉评估</title>
+<style>
+:root{--bg:#f7f4ef;--card:#fffdf9;--ink:#24211e;--muted:#6f675f;--a:#8f3f2b;--b:#2f5f75;--line:#ded4c8;--good:#edf8f2;--warn:#fff2f0;--blue:#eef6fb}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC","PingFang SC","Microsoft YaHei",Arial,sans-serif;line-height:1.62}main{max-width:1120px;margin:0 auto;padding:30px 22px 72px}header{background:linear-gradient(135deg,#fffaf2,#f2e7dc);border:1px solid var(--line);border-radius:22px;padding:26px 30px;margin-bottom:20px}h1{font-size:29px;line-height:1.25;margin:0 0 10px}h2{font-size:22px;margin:32px 0 12px;border-left:5px solid var(--a);padding-left:12px}h3{font-size:18px;margin:20px 0 8px;color:#28485a}.meta,.small{color:var(--muted);font-size:14px}.take{background:#fff6e7;border:1px solid #e7cfa7;border-radius:16px;padding:15px 18px;margin:16px 0}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px 18px;margin:12px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px}.good{background:var(--good)}.warn{background:var(--warn)}.blue{background:var(--blue)}table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:12px 0 22px}th,td{border-bottom:1px solid var(--line);padding:10px 12px;vertical-align:top}th{background:#efe7dc;text-align:left}tr:last-child td{border-bottom:0}code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#f1ece5;border-radius:7px;padding:1px 5px}.flow{white-space:pre-wrap;background:#fbf8f4;border:1px dashed #ccbba9;border-radius:14px;padding:14px 16px}.pill{display:inline-block;border-radius:999px;background:#e7f0f4;color:#244858;padding:2px 8px;margin:2px;font-size:13px}.path{word-break:break-all}.footer{border-top:1px solid var(--line);margin-top:32px;padding-top:12px;color:var(--muted);font-size:13px}</style></head><body><main>
+<header><h1>ImageSimilarity 两版方案交叉评估</h1><div class="meta">对照对象：① 我先前的 HTML 研究报告；② 春水提供的 <code>Claude code's plan.docx</code>。结论重点不是“谁对谁错”，而是两者处在不同层级：我的报告偏研究/证据链与现有 repo 风险诊断；Claude Code plan 偏 LingTai 产品化落地与代码 scaffold。</div></header>
+<section class="take"><strong>总判断：</strong>两版最好合并，而不是二选一。我的方案适合作为“先别误工程化”的底层诊断：先稳定 ImageSimilarity 的数据契约、manifest、可复现性与证据边界。Claude Code plan 适合作为“如果要真的接进 LingTai 产品体系，应怎么做”的实现蓝图：MCP addon、watchdog、TUI 注册、forensic skill、26-code taxonomy、验证测试。合并路线应是：<strong>先 manifest/job_status/page_index，后最小 MCP；先证据工厂，后 agent 网络。</strong></section>
+
+<h2>1. 两版方案的核心差异</h2>
+<table><tr><th>维度</th><th>我的 HTML 报告</th><th>Claude Code plan</th><th>综合判断</th></tr>
+<tr><td>问题定义</td><td>把 repo 改成 schema-first evidence factory，支撑人文 agent。</td><td>把 pipeline 作为 LingTai agentic forensics network 的一阶段，并直接进入 MCP/addon/TUI 设计。</td><td>我的定义更稳健；Claude 更接近可执行产品路线。</td></tr>
+<tr><td>对现有 repo 的诊断</td><td>深入指出 Colab/Drive、CUDA、requirements、ASpanFormer、RGB/gray mismatch、JSON 绝对路径、basename 覆盖、scale 等风险。</td><td>承认现有输出与三段 pipeline，但更少深挖 repo 内部不一致，选择“不改 train/match/process，只加 thin scripts”。</td><td>若要避免踩坑，需保留我的风险清单。</td></tr>
+<tr><td>LingTai 集成</td><td>建议 skill/daemon/avatar/MCP 分阶段；MCP 不应第一步。</td><td>具体到 <code>lingtai-imagesim</code> stdio MCP addon、LICC watchdog、TUI <code>AllAddons</code>、config template、examples。</td><td>Claude 强很多；但应在 manifest/job_status 先稳定后再做 addon。</td></tr>
+<tr><td>运行时监控</td><td>提到 long GPU jobs 应 async，但没有具体 watchdog。</td><td>提出 active watchdog：poll <code>job_status.json</code>、stall/timeout/failure 邮件唤醒并给 recovery suggestion。</td><td>应采用 Claude 的 watchdog，这是它最大优点之一。</td></tr>
+<tr><td>MLLM 比较</td><td>强调必须看原始整页 + crop + OCR/caption/context，区分视觉事实与历史解释。</td><td>把 <code>compare_pair</code> 设计成 MCP tool，Gemini 3.1 Pro 主、Claude fallback，一次送 2–4 图。</td><td>方向一致。我的证据边界更强，Claude 的工具封装更具体。</td></tr>
+<tr><td>Taxonomy</td><td>从 Taylor &amp; Francis 文章抽出 humanities/DHF 类别：crop、mirror、recaption、retouch、republication、print degradation 等。</td><td>给 closed 26-code taxonomy，分 geometric/compositional/tonal/detail/editorial/advanced/artifacts，并加 intent buckets。</td><td>应合并成双层 taxonomy：低层 26 codes + 高层 DHF 解释标签。</td></tr>
+<tr><td>交付形态</td><td>人类可读研究报告。</td><td>design doc + Go TUI repo scaffold + sibling addon build spec + ImageSimilarity scripts build spec。</td><td>如果下一步是给 Jordan/工程师，Claude 更适合作工程 brief；如果下一步是研究判断，我的报告更直接。</td></tr></table>
+
+<h2>2. 我这版的优点与不足</h2>
+<div class="grid"><div class="card good"><h3>优点</h3><ul><li><strong>对现有 CV repo 更谨慎：</strong>把 Colab/Drive 私有路径、外部 weights、ASpanFormer、requirements、CUDA hardcode、RGB/gray mismatch 等提前暴露。</li><li><strong>证据边界清楚：</strong>明确 CV/MLLM 只是线索，不应直接升级为人文结论。</li><li><strong>文章吸收较深：</strong>把 Taylor &amp; Francis 的核心方法转成编辑痕迹 taxonomy 和 full-page/context 需求。</li><li><strong>schema-first：</strong>强调 stable <code>image_id</code>/<code>pair_id</code>/hash/run metadata，这是真正让后续 agent 可引用、可审计的基础。</li></ul></div>
+<div class="card warn"><h3>不足</h3><ul><li><strong>实现落点不够具体：</strong>没有给出 TUI/Kernel/MCP 具体文件、config template、测试路线。</li><li><strong>运行监控不足：</strong>只说 async/GPU jobs，没有像 Claude 那样设计 active watchdog。</li><li><strong>taxonomy 不够工程化：</strong>文章导出的标签适合人文解释，但没有 closed 26-code 那样适合 schema validation。</li><li><strong>没有吸收春水后续回答：</strong>例如 crop filename 可推出 full page、Gemini 3.1 Pro、需要 scaffold Go TUI repo 等信息，我当时并不知道。</li></ul></div></div>
+
+<h2>3. Claude Code plan 的优点与不足</h2>
+<div class="grid"><div class="card good"><h3>优点</h3><ul><li><strong>产品化路径非常具体：</strong><code>lingtai-imagesim</code> MCP addon、7 个 MCP tools、config、schemas、tests、TUI 注册点都有。</li><li><strong>watchdog 设计好：</strong>不是“提交后等完成”，而是能发现 stall/timeout/failure 并邮件唤醒 agent，符合长 GPU job 的真实运维需求。</li><li><strong>把春水补充需求纳入：</strong>full-page mapping、Gemini 3.1 Pro、scaffold 哪些属于 Go TUI repo、哪些属于 sibling repo。</li><li><strong>验证计划完整：</strong>Go build、addon pytest、schema strict-mode、mock Gemini、fake stalled job 等都列出。</li></ul></div>
+<div class="card warn"><h3>不足/风险</h3><ul><li><strong>太快进入 MCP/TUI 工程：</strong>如果 manifest/job_status/page_index 未先验证，TUI 注册会变成空壳。</li><li><strong>对 ImageSimilarity 现有风险覆盖不足：</strong>没有充分处理 RGB/gray mismatch、requirements 缺失、weights provenance、basename overwrite、full score matrix scale 等。</li><li><strong>部分假设需验证：</strong>crop 文件名是否真能稳定推出 page/bbox；<code>aspan_breakpoint=50</code> 是否可靠；CV source/target 与 chronology 的关系；Gemini 3.1 Pro 实际 API/成本/版权边界。</li><li><strong>taxonomy 可能过度封闭：</strong>26-code validation 好，但历史图像编辑常有“低清印刷/再制传播/图注歧义”等灰区，不能把 unknown/uncertain 压扁。</li></ul></div></div>
+
+<h2>4. 最推荐的合并路线</h2>
+<div class="flow">Phase 0 — 对齐事实
+  取 20–50 对真实样例：crop filename、full page、output JSON、match_log、OCR/caption/issue metadata。
+  确认 source/target/fullsource 定义、weights、ASpanFormer commit、breakpoint、Gemini/版权边界。
+
+Phase 1 — 先做 ImageSimilarity 侧 thin scripts
+  make_page_index.py + emit_manifest.py + job_status.json contract。
+  不先改 train/match/process；但要记录当前风险，并为 RGB/gray、CUDA、路径等开 issue。
+
+Phase 2 — 最小 lingtai-imagesim addon
+  先只做 job_status/list_pairs/get_pair/compare_pair（mock MLLM 起步）。
+  submit_job/watchdog 可接 fake runner，再接真实 GPU runner。
+
+Phase 3 — Forensic skill + 双层 taxonomy
+  低层 closed 26-code 便于 schema；高层 DHF 标签便于解释：republication、recaption/recontextualization、print_degradation、propaganda intent 等。
+
+Phase 4 — TUI/Kernel 注册
+  只有当 addon 的 manifest/status/tool schema 跑通后，再加 AllAddons/preset template/examples。
+
+Phase 5 — 人文报告 agent
+  analyst avatars 按 issue/publication shard；输出 findings JSON；orchestrator 汇总 report.md/json。</div>
+
+<h2>5. 可以直接采纳 Claude Code plan 的部分</h2>
+<ul><li><span class="pill">active watchdog + mailbox wake</span>：这是长 GPU pipeline 必需。</li><li><span class="pill">job_status.json</span>：作为 transport-agnostic heartbeat contract，很好。</li><li><span class="pill">make_page_index.py</span>：只要 filename convention 验证成立，就能补上 full-page context。</li><li><span class="pill">compare_pair as MCP tool</span>：比内置单图 vision 更适合 2–4 图比较。</li><li><span class="pill">strict MCP schema 注意事项</span>：避免 top-level oneOf/enum 等 provider strict-mode 问题。</li><li><span class="pill">测试路线</span>：尤其 fake stalled job、mock Gemini、manifest validator。</li></ul>
+
+<h2>6. 我会保留/补进 Claude plan 的部分</h2>
+<ul><li>在 design doc 的前面加一节“不要忽略现有 CV repo 的工程风险”，列出 CUDA/依赖/weights/RGB-gray/路径/scale。</li><li>把 CV/MLLM outputs 定义成 <strong>leads / hypotheses</strong>，必须有 human review 字段。</li><li>把 26-code taxonomy 和文章导出的 DHF taxonomy 合并：一个用于机器验证，一个用于人文解释。</li><li>把 MVP 门槛设为“给定 fixture 能复现 manifest + compare_pair mock + report”，而不是“先完成 TUI 注册”。</li><li>把版权/第三方 MLLM 上传图像的风险提升到 build 前置检查。</li></ul>
+
+<h2>7. 一句话结论</h2>
+<section class="take"><strong>如果春水要的是“研究判断”：</strong>看我原 HTML 更好，因为它说明为什么不能直接把 notebook 交给 agent 跑。<br><strong>如果春水要的是“工程落地”：</strong>Claude Code plan 更好，因为它把 LingTai MCP/addon/watchdog/TUI/scaffold 写到了可开工粒度。<br><strong>真正最强版本：</strong>用我的报告做 Phase 0/1 的风险闸门，用 Claude plan 做 Phase 2–5 的实现蓝图。</section>
+
+<div class="footer">文件来源：<code>Claude code's plan.docx</code> 位于同一工作目录；已转换为 <code>claude_code_plan_docx_text.txt</code>。本对照报告路径：<span class="path">/Users/DuLin/.lingtai/minimax_cn/tmp/reports/image_similarity_agentic_20260624/claude_code_plan_compare/imagesim_plan_cross_comparison.html</span></div>
+</main></body></html>
