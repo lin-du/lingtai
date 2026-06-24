@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ImageSimilarity → 灵台式 Agentic Network：CV pipeline 嵌入方案</title>
+<style>
+  :root { --bg:#f7f4ef; --card:#fffdf9; --ink:#24211e; --muted:#716a62; --accent:#8f3f2b; --accent2:#2f5f75; --line:#ded4c8; --code:#f1ece5; }
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC","PingFang SC","Microsoft YaHei",Arial,sans-serif;line-height:1.62;}
+  main{max-width:1120px;margin:0 auto;padding:32px 22px 72px;}
+  header{background:linear-gradient(135deg,#fffaf2,#f2e7dc);border:1px solid var(--line);border-radius:22px;padding:28px 32px;margin-bottom:22px;box-shadow:0 8px 24px rgba(60,40,20,.06);}
+  h1{font-size:30px;line-height:1.25;margin:0 0 12px;color:#211b17;} h2{font-size:23px;margin:34px 0 14px;color:#3a231b;border-left:5px solid var(--accent);padding-left:12px;} h3{font-size:18px;margin:22px 0 8px;color:#263f4c;}
+  .meta{color:var(--muted);font-size:14px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:18px 0}.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;box-shadow:0 4px 16px rgba(60,40,20,.04)}
+  .takeaway{font-size:18px;background:#fff6e7;border:1px solid #e7cfa7;border-radius:16px;padding:16px 18px;margin:18px 0}.warn{background:#fff2f0;border-color:#e2b6ae}.ok{background:#edf8f2;border-color:#b8d8c5}.blue{background:#eef6fb;border-color:#b9d2df}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;background:var(--code);border-radius:8px} code{padding:1px 5px} pre{padding:14px 16px;overflow:auto;border:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:12px 0 22px} th,td{border-bottom:1px solid var(--line);padding:10px 12px;vertical-align:top} th{background:#efe7dc;text-align:left} tr:last-child td{border-bottom:0} ul{padding-left:23px}.small{font-size:14px;color:var(--muted)}.pill{display:inline-block;background:#efe5d8;color:#553326;border-radius:999px;padding:2px 9px;margin:2px;font-size:13px}.tag{background:#e7f0f4;color:#244858}.path{word-break:break-all;color:#4b362d}.flow{white-space:pre-wrap;background:#fbf8f4;border:1px dashed #ccbba9;border-radius:14px;padding:14px 16px}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.footer{margin-top:34px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}@media(max-width:760px){.two{grid-template-columns:1fr}h1{font-size:25px}}
+</style>
+</head>
+<body><main>
+<header>
+  <h1>ImageSimilarity → 灵台式 Agentic Network：CV pipeline 嵌入方案</h1>
+  <div class="meta">研究对象：<code>https://github.com/JordanLow/ImageSimilarity</code>；本地 clone commit <code>71266e0</code>。方法：静态代码/Notebook 审阅 + Taylor &amp; Francis 文章阅读 + 两支分神 + <code>claude -p --model opus</code> 独立审阅。未训练、未下载大模型、未运行 GPU pipeline。</div>
+</header>
+
+<section class="takeaway">
+  <strong>总判断：</strong>这个 repo 现在不是可以直接“插进灵台”的稳定组件，而是一个 Colab/Drive 驱动的研究型 notebook pipeline。它最适合被改造成一个<strong> schema-first evidence factory（证据工厂）</strong>：CV 负责发现候选 image pairs，几何验证给出可度量的对应证据，pair curator 形成审阅队列，MLLM agent 再对原始整页/裁剪图做编辑痕迹标注，最后由人文研究 agent 写解释性报告。关键不是让一个 agent “跑 notebook”，而是把 notebook 拆成可审计、可复现、可排队、可引用的工具链。
+</section>
+
+<h2>1. 现在的 CV pipeline 实际在做什么</h2>
+<div class="flow">Google Drive / Colab
+  → stage source/target crop zips 到 /content/image_similarity_work
+  → train.py 训练自监督 contrastive image-similarity head（可选/离线）
+  → match.py 对 source×target 做 embedding cosine top-k retrieval
+  → process_images.py 用 ASpanFormer + RANSAC 做几何验证
+  → output/*.json、visualizations/*/match_log.json、weights/、zip 回 Drive</div>
+
+<table>
+<tr><th>阶段</th><th>当前实现</th><th>主要输入/输出</th><th>可 agent 化的接口</th></tr>
+<tr><td>数据 staging</td><td><code>run.ipynb</code> 从 Drive 复制 <code>workingsourcecrops.zip</code>、<code>working_targetcrops.zip</code> 到本地 Colab 并解压</td><td>输入：Drive zip / private paths；输出：source/target crop dirs</td><td><code>ingest(source_dir/archive, target_dir/archive) → manifest/images.jsonl</code></td></tr>
+<tr><td>训练</td><td><code>train.py</code> + <code>DataLoader.py</code>：把 source+target 混合，用原图/增强图构造自监督正对；冻结 backbone，只训练 FC/projection head</td><td>输出：<code>weights/best.pt</code>（主要是 head 权重）</td><td>先作为离线 model-versioning，不放在默认 pipeline 每次运行中</td></tr>
+<tr><td>候选检索</td><td><code>match.py</code>：动态加载 <code>ModelCombo*.py</code> 与 weights，逐图提取 embedding，算 cosine matrix，top-k 每 source 输出一个 JSON</td><td><code>output/&lt;source_basename&gt;.json</code>，包含 target filepath 和 similarity_score</td><td><code>retrieve(run_id, model_config, topk) → retrieval/candidates.jsonl</code></td></tr>
+<tr><td>几何验证</td><td><code>process_images.py</code>：外部 <code>ml-aspanformer</code>，keypoint match 后 <code>cv2.findFundamentalMat(..., FM_RANSAC)</code> 算 inlier count</td><td><code>visualizations/&lt;source&gt;/match_log.json</code>；high/low matches</td><td><code>verify_geometry(candidates, aspan_config, threshold) → verification/pairs.jsonl</code></td></tr>
+<tr><td>导出/审阅</td><td>Notebook zip weights / visualizations 回 Drive；部分 shard/sample cell</td><td>zip、可视化、日志</td><td>artifact manifest + contact sheet/review queue</td></tr>
+</table>
+
+<h2>2. 不能直接产品化的关键风险</h2>
+<div class="grid">
+  <div class="card warn"><h3>Colab/Drive 强耦合</h3><p><code>run.ipynb</code> 写死 <code>/content/</code>、<code>google.colab</code>、Drive 路径；scripts 从 Drive 而非 git checkout 运行，可能与 repo 版本漂移。</p></div>
+  <div class="card warn"><h3>依赖与权重不完整</h3><p><code>requirements.txt</code> 只有 torch/torchvision/pillow/tqdm/numpy；ASpanFormer、OpenCV、Lightning、Albumentations 等不在 repo 管理；DINO/ASpanFormer 权重靠私有路径。</p></div>
+  <div class="card warn"><h3>CUDA 硬依赖</h3><p><code>DataLoader</code>、<code>match.py</code>、<code>process_images.py</code> 多处直接 <code>.cuda()</code> 或 <code>device='cuda'</code>；没有 CPU fallback，也没有清晰的早期失败。</p></div>
+  <div class="card warn"><h3>训练/推理预处理不一致</h3><p><code>DataLoader.readImg()</code> 保持 RGB；<code>match.py.readImg()</code> 会转成 3-channel grayscale。这可能是 train/test distribution shift，必须确认是否有意为之。</p></div>
+  <div class="card warn"><h3>输出契约脆弱</h3><p>per-source JSON 用运行时绝对路径、basename 命名；重复 basename 会覆盖；<code>match_log.json</code> 只存 target path→inlier count，丢失 similarity/rank/threshold/model metadata。</p></div>
+  <div class="card warn"><h3>Notebook 命令漂移</h3><p>Notebook 中有 <code>--top_x_matches</code> 例子，但当前 <code>process_images.py</code> 无此参数；epochs/threshold 等也有多处不同版本。</p></div>
+</div>
+
+<h2>3. 放进灵台/agentic network 的推荐拓扑</h2>
+<div class="flow">Orchestrator（主控）
+  → image-ingestion-indexing agent：解包、manifest、hash、页/图元数据
+  → cv-retrieval GPU service/agent：embedding + top-k candidates
+  → geometric-verifier GPU service/agent：ASpanFormer/RANSAC 验证
+  → pair-curator agent：合并证据、去重、分级、形成 review queue
+  → mllm-edit-tagger agent：整页+裁剪图比较，输出编辑痕迹 tags
+  → humanities-report-writer agent：结合出版物/图注/上下文写人文报告
+  → provenance-audit-keeper：run_id、参数、模型、hash、日志、schema validation</div>
+
+<table>
+<tr><th>组件</th><th>在灵台里适合的形态</th><th>理由</th></tr>
+<tr><td>Pipeline 使用说明</td><td>Skill：<code>image-similarity-pipeline</code></td><td>让任何研究 agent 知道何时调用、输入格式、如何解释输出、哪些结论只是线索。</td></tr>
+<tr><td>稳定 CV 执行接口</td><td>MCP 或本地 API service</td><td>CV retrieval/verification 是 typed tool；避免每个 agent 直接 shell notebook。</td></tr>
+<tr><td>长 GPU 任务</td><td>service 背后的 async bash/job queue</td><td>embedding、ASpanFormer、训练都可能很久，应返回 job_id/run_id 而不是阻塞 agent。</td></tr>
+<tr><td>单次项目编排</td><td><code>cv_pipeline_keeper</code> daemon/avatar</td><td>拥有 run workspace、轮询 job、写 audit/events.jsonl、把 artifact paths 回给研究 agent。</td></tr>
+<tr><td>模型卡/阈值/失败模式</td><td>Knowledge</td><td>记录 project-private 的模型版本、权重 hash、阈值经验、Jordan/春水确认过的设定。</td></tr>
+<tr><td>候选/验证/MLLM 输出</td><td>Artifacts</td><td>研究报告引用 artifact id/path/hash，而不是把大 JSON 塞进对话。</td></tr>
+</table>
+
+<h2>4. 数据契约：把“图片路径”升级为“可引用证据”</h2>
+<p>最小需要以下 JSON/JSONL 契约。核心原则：每个 pair 有稳定 <code>pair_id</code>；每张图有 <code>image_id</code>/<code>sha256</code>；每个结论都能追溯到 run、模型、参数和 artifact。</p>
+<pre><code>audit/run.json
+manifest/images.jsonl
+retrieval/candidates.jsonl
+verification/pairs.jsonl
+curation/curated_pairs.jsonl
+curation/review_queue.jsonl
+mllm/edit_tags.jsonl
+reports/findings.jsonl</code></pre>
+
+<div class="two">
+<div class="card blue"><h3>RetrievalCandidate 需要包含</h3><ul><li><code>run_id</code>, <code>pair_id</code></li><li>source/target image id + path</li><li><code>rank</code>, <code>similarity_score</code></li><li>model_definition / weights hash / preprocessing version</li><li>self-match suppression 与错误状态</li></ul></div>
+<div class="card blue"><h3>GeometricVerification 需要包含</h3><ul><li>ASpanFormer config/weights hash</li><li><code>raw_keypoints</code>, <code>inlier_count</code></li><li>RANSAC method / reproj threshold / breakpoint</li><li>high/low/failed 状态</li><li>可选 visualization_ref、fundamental matrix / transform hint</li></ul></div>
+</div>
+
+<h2>5. MLLM 编辑痕迹 tagger：为什么必须看原始整页</h2>
+<p>春水给的 Taylor &amp; Francis 文章（<em>From information to metaphor: Tracking photographic editing in Chinese wartime magazines through Digital Historical Forensics</em>）正好说明：CV 找 pair 只是第一层，真正的人文问题在“图像怎样被裁剪、重配图注、再发表、修饰、误导性重用”。文章本身也采用 YOLOv7 + ViT/EfficientNetv2/Swin top-15 retrieval（报告 77.8% top-15 accuracy）来辅助追踪，但最终解释依赖图注、版面、出版语境和传播路径。</p>
+<p>因此 MLLM agent 不应只看 YOLO crop；它应接收：</p>
+<ul>
+<li>source/target 的原始整页图（带 crop bbox overlay）；</li>
+<li>对应 crop 局部图；</li>
+<li>CV metadata：similarity score、rank、ASpanFormer inliers、可视化；</li>
+<li>OCR/图注/出版物 metadata（如果有）；</li>
+<li>严格 JSON 输出 schema，区分“可见视觉事实”和“历史解释假设”。</li>
+</ul>
+
+<h3>建议 controlled vocabulary</h3>
+<p>
+<span class="pill tag">crop / reframe</span><span class="pill tag">partial_overlap</span><span class="pill tag">mirror / flip</span><span class="pill tag">rotation / scale</span><span class="pill tag">recaption</span><span class="pill tag">caption_removed / added</span><span class="pill tag">layout_change</span><span class="pill tag">retouch / erased_object</span><span class="pill tag">drawn_addition</span><span class="pill tag">montage_or_composite</span><span class="pill tag">republication / circulation</span><span class="pill tag">print_degradation / detail_suppression</span><span class="pill tag">non_match</span><span class="pill tag">uncertain</span>
+</p>
+
+<pre><code>{
+  "pair_id": "...",
+  "relationship": {
+    "is_same_base_image": true,
+    "relationship_type": "derivative | republication | non_match | uncertain",
+    "confidence": 0.86
+  },
+  "edit_tags": [
+    {"tag":"crop", "confidence":0.92, "evidence":"target omits left margin and lower foreground", "visual_basis":"full_page+crop"},
+    {"tag":"recaption", "confidence":0.81, "evidence":"caption text differs between publication contexts", "metadata_needed":true}
+  ],
+  "negative_tags": ["mirror"],
+  "needs_human_review": true,
+  "warning": "Do not claim publication history unless supported by metadata."
+}</code></pre>
+
+<h2>6. MVP 路线：先别重写成巨大系统，先把证据链跑通</h2>
+<table>
+<tr><th>阶段</th><th>交付物</th><th>目的</th></tr>
+<tr><td>0. 确认输入</td><td>source/target/full-page 的定义；weights；ASpanFormer 版本；threshold</td><td>避免在错误数据假设上工程化。</td></tr>
+<tr><td>1. 包一层 legacy runner</td><td>保留 <code>match.py</code>/<code>process_images.py</code>，外面加 run_id/workspace/audit</td><td>最快把 notebook 从 Colab cell 变成可调用 pipeline。</td></tr>
+<tr><td>2. Manifest + converter</td><td><code>images.jsonl</code>、legacy JSON → <code>candidates.jsonl</code>、<code>pairs.jsonl</code></td><td>建立稳定 pair_id 和可追溯 artifact。</td></tr>
+<tr><td>3. Curation policy</td><td><code>default_curation.yml</code> + <code>review_queue.jsonl</code></td><td>决定哪些 pair 送 MLLM/人工，而不是全量烧 API。</td></tr>
+<tr><td>4. MLLM prototype</td><td>对 10–50 对 pair 生成 <code>mllm/edit_tags.jsonl</code> + 小报告</td><td>验证 crop/mirror/recaption/retouch/republication schema 是否可用。</td></tr>
+<tr><td>5. 灵台集成</td><td>Skill + <code>cv_pipeline_keeper</code> daemon/avatar；后续再 MCP</td><td>让其他人文 agent 能请求 run、读取 artifact、写报告。</td></tr>
+</table>
+
+<h2>7. 应先问 Jordan/春水确认的问题</h2>
+<ol>
+<li><code>workingsourcecrops</code>、<code>working_targetcrops</code>、<code>fullsource</code> 的 canonical 含义是什么？fullsource 是否应该是原始整页，而不是当前同 source crops？</li>
+<li>Notebook 里把 target crops 复制进 source crops 是正式流程还是一次性 workaround？</li>
+<li>生产 matching 应使用哪个 checkpoint：当前训练出的 <code>weights/best.pt</code>、Drive 的 <code>DINO.pt</code>，还是某个 Working_DINO 权重？</li>
+<li><code>ml-aspanformer</code> 是否是 fork？应记录哪个 repo/commit/weights hash？</li>
+<li><code>BREAKPOINT_VALUE=50/75</code> 是如何校准的？是否随数据集变化？</li>
+<li><code>match.py</code> 的 grayscale 推理是否有意？如果不是，应统一 train/inference preprocessing。</li>
+<li>目标数据规模是多少（source 数、target 数、topk）？这决定 full score matrix 是否还能用，或必须转 FAISS/vector index。</li>
+<li>recaption/republication 所需的 OCR、期刊、日期、页码 metadata 现在在哪里？</li>
+</ol>
+
+<h2>8. 立即行动建议</h2>
+<ol>
+<li>不要先做“更聪明的 agent”，先把 CV pipeline 的<strong>输入/输出契约和 provenance</strong>补齐。</li>
+<li>把 notebook 改成 thin launcher；真正逻辑拆到 package/CLI：<code>io.py</code>、<code>models.py</code>、<code>preprocess.py</code>、<code>retrieval.py</code>、<code>geometry.py</code>、<code>schemas.py</code>。</li>
+<li>修复/确认 RGB vs grayscale、CUDA hardcode、DataLoader path、image extension filtering、duplicate basename overwrite、absolute path JSON 等工程问题。</li>
+<li>先实现 JSONL artifacts 与 <code>audit/run.json</code>，再考虑 MCP。MCP 是第二步，不是第一步。</li>
+<li>MLLM tagger 用严格 JSON + controlled vocabulary；报告生成 agent 必须把 CV/MLLM 结论表述为“证据线索/假设”，由人文审阅决定是否升级为研究论断。</li>
+</ol>
+
+<h2>9. 本次产物路径</h2>
+<ul class="small">
+<li>本 HTML：<span class="path">/Users/DuLin/.lingtai/minimax_cn/tmp/reports/image_similarity_agentic_20260624/image_similarity_agentic_network_report.html</span></li>
+<li>本地 repo：<span class="path">/Users/DuLin/.lingtai/minimax_cn/tmp/reports/image_similarity_agentic_20260624/ImageSimilarity</span></li>
+<li>Claude Opus 审阅：<span class="path">/Users/DuLin/.lingtai/minimax_cn/tmp/reports/image_similarity_agentic_20260624/claude_opus_arch_review.md</span></li>
+<li>分神 repo 技术审阅：<span class="path">/Users/DuLin/.lingtai/minimax_cn/tmp/reports/image_similarity_agentic_20260624/daemon_repo_pipeline_review.md</span></li>
+<li>分神 agentic 架构：<span class="path">/Users/DuLin/.lingtai/minimax_cn/tmp/reports/image_similarity_agentic_20260624/daemon_agentic_architecture.md</span></li>
+<li>Taylor &amp; Francis 文章 Jina Reader 抓取：<span class="path">/Users/DuLin/.lingtai/minimax_cn/tmp/reports/image_similarity_agentic_20260624/article/tandf_2514410_jina_direct.md</span></li>
+</ul>
+
+<div class="footer">证据边界：repo 审阅基于公开 GitHub 当前 HEAD 的静态分析；文章抓取为 Jina Reader markdown，不是 publisher PDF；未运行训练/匹配/ASpanFormer，因此对精度和运行耗时只做架构级判断。</div>
+</main></body></html>
