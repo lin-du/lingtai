@@ -1,0 +1,86 @@
+// =============================================================
+// ImageSimilarity forensics addon — imagesim.json
+// =============================================================
+// Config for the `lingtai-imagesim` MCP addon (module `lingtai_imagesim`).
+// Point to this file from init.json (post-m028 form):
+//   "addons": ["imagesim"],
+//   "mcp": {
+//     "imagesim": {
+//       "type": "stdio",
+//       "command": "<runtime venv python>",
+//       "args": ["-m", "lingtai_imagesim"],
+//       "env": { "LINGTAI_IMAGESIM_CONFIG": "path/to/this/config.json" }
+//     }
+//   }
+//
+// NOTE: the `lingtai-imagesim` addon is a build spec (a NEW sibling repo) — see
+// discussions/imagesim-forensics-integration.md. This file documents the intended
+// config contract. Secrets (API keys) go in your .env and are referenced via *_env.
+// JSON does not allow comments — strip them before use.
+// =============================================================
+{
+  // Run workspace produced by ImageSimilarity's run_pipeline.py / emit_evidence.py.
+  // The addon reads the JSONL evidence chain + job_status.json from here.
+  "workspace": "~/.lingtai-imagesim/runs",
+
+  // The specific run to serve (omit/null to use the most recent run_id in workspace).
+  "run_id": null,
+
+  // Roots for resolving relative image paths in the manifest.
+  "source_root": "/data/workingsourcecrops",
+  "target_root": "/data/working_targetcrops",
+  "full_page_root": "/data/full_pages",   // null if crop->full-page mapping is unavailable
+
+  // ASpanFormer geometric breakpoint (inlier count) that splits high/low bands.
+  // Mirror the value used in process_images.py (default 50).
+  "aspan_breakpoint": 50,
+
+  // -------------------------------------------------------
+  // CV job runner (how submit_job launches run_pipeline.py)
+  // job_status.json is the transport-agnostic heartbeat contract.
+  // -------------------------------------------------------
+  "runner": {
+    // "local_subprocess" | "ssh" | "command"
+    "type": "local_subprocess",
+
+    // local_subprocess: command + args run on this host (GPU expected locally).
+    "command": "python",
+    "args": ["run_pipeline.py"],
+
+    // ssh: uncomment and set host + remote workspace; status read via ssh/scp.
+    // "host": "gpu-box.internal",
+    // "remote_workspace": "/home/agent/imagesim/runs",
+
+    // command: user-supplied submit/status/cancel templates ({run_id} substituted).
+    // "submit": "qsub run_imagesim.pbs",
+    // "status": "qstat {job_id}",
+    // "cancel": "qdel {job_id}"
+  },
+
+  // -------------------------------------------------------
+  // Watchdog (the LICC listener supervises the running job)
+  // -------------------------------------------------------
+  "watchdog": {
+    "poll_interval": 30,      // seconds between job_status polls
+    "stall_threshold": 600,   // seconds with no heartbeat/progress => stalled alert
+    "max_runtime": 43200      // seconds total before a timeout alert (12h)
+  },
+
+  // -------------------------------------------------------
+  // MLLM for compare_pair (independent of the agent's main LLM)
+  // -------------------------------------------------------
+  "model": {
+    "provider": "gemini",                 // primary
+    "model": "gemini-3.1-pro",
+    "api_key_env": "GEMINI_API_KEY",
+    "base_url": null,
+    // fallback model if the primary call fails
+    "fallback": { "provider": "anthropic", "model": "claude-opus-4-8", "api_key_env": "ANTHROPIC_API_KEY" }
+  },
+
+  // Send both full pages (crop-bbox overlaid) + both crops when full pages exist.
+  "use_full_pages_default": true,
+
+  // Path to the closed Layer-1 taxonomy the tagger validates against.
+  "taxonomy": "examples/forensics/edit-taxonomy.json"
+}
