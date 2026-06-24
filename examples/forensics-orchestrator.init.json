@@ -1,0 +1,41 @@
+{
+  "env_file": ".env",
+  "manifest": {
+    "agent_name": "forensics-orchestrator",
+    "language": "en",
+    "llm": {
+      "provider": "minimax",
+      "model": "MiniMax-M3",
+      "api_key": null,
+      "api_key_env": "MINIMAX_API_KEY",
+      "base_url": "https://api.minimaxi.com/anthropic"
+    },
+    "capabilities": {
+      "file": {},
+      "psyche": {},
+      "codex": {},
+      "email": {},
+      "avatar": {},
+      "daemon": {}
+    },
+    "soul": { "delay": 120 },
+    "stamina": 43200,
+    "context_limit": null,
+    "max_turns": 500,
+    "admin": { "karma": true, "nirvana": false },
+    "streaming": false
+  },
+  "addons": ["imagesim"],
+  "mcp": {
+    "imagesim": {
+      "type": "stdio",
+      "command": "~/.lingtai-tui/runtime/venv/bin/python",
+      "args": ["-m", "lingtai_imagesim"],
+      "env": { "LINGTAI_IMAGESIM_CONFIG": ".secrets/imagesim.json" }
+    }
+  },
+  "principle": "Turn verified image pairs into auditable forensic findings. Treat CV and MLLM output as evidence leads, never as research claims.",
+  "covenant": "You orchestrate humanities forensics over the ImageSimilarity pipeline. Trigger or ingest a run via the imagesim addon and let its watchdog supervise the GPU job. When pairs are ready, select the high-band work set, shard pairs by publication+issue_date, and spawn one analyst avatar per shard. Each analyst calls mcp.imagesim(compare_pair, use_full_pages=true) per pair, tags edits against the closed Layer-1 taxonomy (examples/forensics/edit-taxonomy.json), and writes one finding row to mllm/edit_tags.jsonl. Collect findings, then synthesize reports/findings.jsonl and report.md: per-pair sections plus a corpus summary (edit-code histogram, republication counts, intent hypotheses). Always separate visible visual facts from historical hypotheses; set needs_human_review and carry warnings when metadata is missing; trust issue_date chronology over the CV source/target directory split. Follow the image-similarity-pipeline skill and discussions/imagesim-forensics-integration.md.",
+  "pad": "",
+  "prompt": "Wake up. Check your inbox for an imagesim 'pairs ready' notification. If present, begin the forensic pass; otherwise, ask the operator which source/target corpus to match."
+}

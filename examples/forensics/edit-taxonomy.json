@@ -1,0 +1,40 @@
+{
+  "schema": "lingtai.imagesim/edit-taxonomy@1",
+  "description": "Layer-1 closed vocabulary of visual-edit codes for the image-similarity forensics pipeline. The MLLM may only emit codes from `codes[].code`. Two escape hatches (non_match, uncertain) are always permitted and must never be omitted in favor of a forced definite tag. Layer-2 DHF interpretive tags (relationship_type, intent_hypothesis) are NOT validated against this file.",
+  "categories": [
+    "geometric", "compositional", "tonal", "detail", "editorial", "advanced", "artifacts", "meta"
+  ],
+  "codes": [
+    {"code": "crop", "category": "geometric", "desc": "Portions removed to change framing/composition.", "detect": "Compare framing/boundaries; target omits regions present in source."},
+    {"code": "rotate", "category": "geometric", "desc": "Whole image or element rotated.", "detect": "Geometric misalignment, edge artifacts."},
+    {"code": "mirror", "category": "geometric", "desc": "Horizontal left-right flip.", "detect": "Subject/text/gesture direction reversed."},
+    {"code": "vflip", "category": "geometric", "desc": "Vertical top-bottom flip.", "detect": "Spatial relationships inverted."},
+    {"code": "scale", "category": "geometric", "desc": "Whole image or region resized.", "detect": "Resampling artifacts, interpolation patterns."},
+    {"code": "partial_overlap", "category": "geometric", "desc": "Only part of one image overlaps the other (shared sub-region).", "detect": "A subset of content matches; the rest diverges."},
+    {"code": "copy-move", "category": "compositional", "desc": "Region duplicated within the same image.", "detect": "Repeated patterns / identical keypoints in non-adjacent regions."},
+    {"code": "splice", "category": "compositional", "desc": "Content combined from two or more images.", "detect": "Seam artifacts, lighting/shadow mismatch, local compression inconsistency."},
+    {"code": "inpaint", "category": "compositional", "desc": "Object/person removed via fill/clone.", "detect": "Unnaturally uniform texture where removal occurred."},
+    {"code": "add", "category": "compositional", "desc": "New content painted/pasted in.", "detect": "Texture/lighting/shadow inconsistency vs surroundings."},
+    {"code": "color", "category": "tonal", "desc": "Color temperature/saturation/hue adjustment.", "detect": "Color histogram / white-balance shift in neutral areas."},
+    {"code": "contrast", "category": "tonal", "desc": "Tonal contrast increased/decreased.", "detect": "Histogram shape, clipped highlights/shadows."},
+    {"code": "brightness", "category": "tonal", "desc": "Global luminosity change.", "detect": "Luminance histogram shift, blown/crushed tones."},
+    {"code": "tone", "category": "tonal", "desc": "Tonal-range remap (levels/curves).", "detect": "Posterization, histogram gaps, banding."},
+    {"code": "selective", "category": "tonal", "desc": "Localized dodge/burn.", "detect": "Unnatural tonal boundaries in specific regions."},
+    {"code": "retouch", "category": "detail", "desc": "Small blemish/scratch/dust removal.", "detect": "Over-smoothed microstructure, missing grain."},
+    {"code": "sharpen", "category": "detail", "desc": "Edge/detail enhancement.", "detect": "Halos around edges, exaggerated high-frequency detail."},
+    {"code": "denoise", "category": "detail", "desc": "Grain/noise/texture reduction.", "detect": "Over-smooth areas vs source noise pattern."},
+    {"code": "blur", "category": "detail", "desc": "Intentional defocus (motion/DoF/obfuscation).", "detect": "Inconsistent focus regions, unnatural blur boundaries."},
+    {"code": "recaption", "category": "editorial", "desc": "Caption/label/attribution altered or replaced.", "detect": "Caption text differs between publication contexts; needs metadata."},
+    {"code": "recontextualize", "category": "editorial", "desc": "Repositioned/regrouped in a different editorial layout.", "detect": "Different surrounding text, article, or adjacent images."},
+    {"code": "textual-overlay", "category": "editorial", "desc": "Text/arrows/graphics overlaid on the image.", "detect": "Overlay elements not in source; rendering/compositing seams."},
+    {"code": "re-date", "category": "editorial", "desc": "Claimed date/period altered.", "detect": "Date metadata/caption mismatch vs historical context."},
+    {"code": "face-alter", "category": "advanced", "desc": "Face warped/replaced/reshaped.", "detect": "Asymmetry, structural inconsistency, mismatched facial lighting."},
+    {"code": "deepfake", "category": "advanced", "desc": "AI-generated/synthesized content.", "detect": "GAN/diffusion artifacts, impossible physics, spectral inconsistency."},
+    {"code": "recompress", "category": "artifacts", "desc": "Re-encoded with different compression.", "detect": "JPEG block misalignment, quantization artifacts."},
+    {"code": "format-convert", "category": "artifacts", "desc": "Format conversion with generational loss.", "detect": "Artifact-pattern / color-depth differences."},
+    {"code": "print_degradation", "category": "artifacts", "desc": "Loss from low-quality printing/scanning of historical media.", "detect": "Halftone/screen patterns, ink bleed, paper texture; not a deliberate edit."},
+    {"code": "detail_suppression", "category": "artifacts", "desc": "Detail lost in print such that fine forensic cues are unrecoverable.", "detect": "Flat, low-frequency regions where source had detail; gates confidence rather than asserting an edit."},
+    {"code": "non_match", "category": "meta", "desc": "The two images are NOT the same base photograph.", "detect": "Different scene/subject despite CV similarity; always allowed."},
+    {"code": "uncertain", "category": "meta", "desc": "Insufficient evidence to decide.", "detect": "Use whenever print degradation, missing metadata, or ambiguity prevents a confident call."}
+  ]
+}
